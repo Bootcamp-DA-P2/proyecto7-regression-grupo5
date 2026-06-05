@@ -1,1 +1,1 @@
-# proyecto6-regression-grupo5
+# proyecto6-Regression-grupo5
