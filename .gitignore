@@ -221,6 +221,7 @@ __marimo__/
 # data files
 data/
 output/
+*.csv
 
 //Ignorar DS
 
