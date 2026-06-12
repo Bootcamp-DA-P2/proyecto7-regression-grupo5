@@ -41,16 +41,16 @@ def crear_recursos_mock():
 
 @st.cache_data
 def load_data():
-    return pd.read_csv('clean_train.csv')
+    return pd.read_csv(r'data/utiles/clean_data/clean_train.csv')
 df = load_data()
 
 @st.cache_resource
 def cargar_recursos():
     try:
         # Cargamos los 3 archivos del pipeline estricto de tu compañera
-        modelo = joblib.load('modelo_ridge_house_prices.pkl')
-        escalador = joblib.load('escalador_house_prices.pkl')
-        columnas = joblib.load('columnas_modelo.pkl')
+        modelo = joblib.load(r'data/utiles/modelo/modelo_ridge_house_prices.pkl')
+        escalador = joblib.load(r'data/utiles/modelo/escalador_house_prices.pkl')
+        columnas = joblib.load(r'data/utiles/modelo/columnas_modelo.pkl')
         return modelo, escalador, columnas, False
     except Exception as e:
         # Si falta algún archivo, el mock salva la app
