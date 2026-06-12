@@ -8,6 +8,7 @@ import warnings
 warnings.filterwarnings("ignore")
 import joblib # Para cargar el modelo de machine learning
 from sklearn.linear_model import LinearRegression #creación de modeo mockeado
+from sklearn.preprocessing import StandardScaler
 
 # ── Configuracion de la página ────────────────────────────────────────────────
 st.set_page_config(
@@ -18,13 +19,24 @@ st.set_page_config(
 )
 
 # ── Modelo mockeado ────────────────────────────────────────────────────────────
-def crear_modelo_mock():
+def crear_recursos_mock():
     modelo_mock = LinearRegression()
-    # Supone 6 variables de entrada (p_qual, p_area, p_year, p_gar, p_bsmt, p_bath)
-    X_ficticio = np.array([[7, 1500, 1990, 2, 900, 2]])
-    y_ficticio = np.array([200000.0])
-    modelo_mock.fit(X_ficticio, y_ficticio)
-    return modelo_mock
+    scaler_mock = StandardScaler()
+    # Entrenamos con un dato ficticio de 7 variables (incluyendo chimeneas)
+    X_ficticio = np.array([[7, 1500, 1990, 2, 900, 2, 1]])
+    y_ficticio = np.array([12.2]) # Logaritmo aproximado de 200,000
+    scaler_mock.fit(X_ficticio)
+    # Simulamos los nombres de las columnas en el scaler mock para que no falle
+    scaler_mock.feature_names_in_ = ["OverallQual", "GrLivArea", "YearBuilt", "GarageCars", "TotalBsmtSF", "FullBath", "Fireplaces"]
+    modelo_mock.fit(scaler_mock.transform(X_ficticio), y_ficticio)
+    # Simulamos las 258 columnas coef_ para Ridge
+    modelo_mock.coef_ = np.zeros(258)
+    # Damos pesos ficticios a los índices que usaremos
+    modelo_mock.coef_[0] = 0.35  # OverallQual
+    modelo_mock.coef_[1] = 0.25  # GrLivArea
+    columnas_mock = ["OverallQual", "GrLivArea", "YearBuilt", "GarageCars", "TotalBsmtSF", "FullBath", "Fireplaces"] + [f"col_{i}" for i in range(251)]
+    return modelo_mock, scaler_mock, columnas_mock, True
+
 # ── Carga de datos ────────────────────────────────────────────────────────────
 
 @st.cache_data
@@ -32,19 +44,20 @@ def load_data():
     return pd.read_csv('clean_train.csv')
 df = load_data()
 
-@st.cache_resource  
-def cargar_modelo():
+@st.cache_resource
+def cargar_recursos():
     try:
-        return joblib.load("mejor_modelo.pkl"), False
+        # Cargamos los 3 archivos del pipeline estricto de tu compañera
+        modelo = joblib.load('modelo_ridge_house_prices.pkl')
+        escalador = joblib.load('escalador_house_prices.pkl')
+        columnas = joblib.load('columnas_modelo.pkl')
+        return modelo, escalador, columnas, False
     except Exception as e:
-        # Si no encuentra 'mejor_modelo.pkl', carga el mock
-        modelo_respaldo = crear_modelo_mock()
-        return modelo_respaldo, True
+        # Si falta algún archivo, el mock salva la app
+        return crear_recursos_mock()
 
-
-modelo_ml, hubo_error = cargar_modelo()
-
-
+# Despaquetamos los 3 componentes del pipeline + el testigo de error
+modelo_ml, scaler, columnas_modelo, hubo_error = cargar_recursos()
 
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
@@ -150,21 +163,22 @@ with st.sidebar:
             help="Qué variable numérica comparar con SalePrice"
         )
 
-    # ── Controles del PREDICTOR ───────────────────────────────────────────────
+    # ── Controles del PREDICTOR (CAMBIO 1: Añadimos Chimeneas) ────────────────
     else:
         st.markdown("### Características de la casa")
         st.caption("Ajusta los valores para estimar el precio")
 
-        p_qual = st.slider("Calidad general (1-10)", 1, 10, 7)
-        p_area = st.slider("Superficie habitable (sqft)", 500, 4000, 1500, step=50)
-        p_year = st.slider("Año de construcción", 1900, 2010, 1990)
+        p_qual = st.slider("Calidad general (1-10)", 1, 10, 6)
+        p_area = st.slider("Superficie habitable (sqft)", 300, 4000, 1500, step=50)
+        p_year = st.slider("Año de construcción", 1870, 2010, 1990)
         p_gar  = st.slider("Plazas de garaje", 0, 4, 2)
-        p_bsmt = st.slider("Superficie sótano (sqft)", 0, 3000, 900, step=50)
-        p_bath = st.slider("Baños completos", 0, 3, 2)
+        p_bsmt = st.slider("Superficie sótano (sqft)", 0, 3000, 1000, step=50)
+        p_bath = st.slider("Baños completos", 0, 4, 2)
+        p_fire = st.slider("Chimeneas (Fireplaces)", 0, 4, 1) # <-- Nueva variable
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PÁGINA 1 — EXPLORADOR (tu código original intacto)
+# PÁGINA 1 — EXPLORADOR 
 # ══════════════════════════════════════════════════════════════════════════════
 if pagina == "📊  Explorador":
 
@@ -239,7 +253,7 @@ if pagina == "📊  Explorador":
     )
     st.plotly_chart(fig_evol, use_container_width=True)
 
-    # ── Gráficos 2 y 3: Scatter + Pie ─────────────────────────────────────────
+    # ── Gráticos 2 y 3: Scatter + Pie ─────────────────────────────────────────
     st.markdown(f'<div class="section-title">🔍 Análisis por <i>{variable_categorica}</i></div>',
                 unsafe_allow_html=True)
 
@@ -347,23 +361,61 @@ if pagina == "📊  Explorador":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PÁGINA 2 — PREDICCIÓN (casilla lista, gráficos por decidir)
+# PÁGINA 2 — PREDICCIÓN (CAMBIO 2: Sincronización Rigurosa del Pipeline)
 # ══════════════════════════════════════════════════════════════════════════════
 else:
 
     st.title("🔮 Predictor de precio")
-    st.caption("Introduce las características de la casa para estimar su valor de venta")
+    st.caption("Introduce las características de la casa para estimar su valor de venta en tiempo real")
     st.markdown("---")
 
     if hubo_error:
         st.error("⚠️ No se pudo cargar el modelo real ('mejor_modelo.pkl'). "
                  "La aplicación está funcionando en 'Modo Demostración' con un modelo simulado.")
    
-    datos_casa = np.array([[p_qual, p_area, p_year, p_gar, p_bsmt, p_bath]])
+    # 1. Molde de 258 columnas inicializadas en cero
+    datos_modelo = {col: 0 for col in columnas_modelo}
     
-    # 2. Hacer la predicción real con el .pkl
-    pred_real = modelo_ml.predict(datos_casa)
-    pred = float(pred_real[0]) # Extraemos el número del array de predicción
+    # 2. SEGURO: Extraemos exactamente la estructura que el objeto escalador espera
+    try:
+        columnas_del_scaler = list(scaler.feature_names_in_)
+    except AttributeError:
+        # Fallback de respaldo ordenado por si falla el atributo nativo
+        columnas_del_scaler = ['OverallQual', 'GrLivArea', 'YearBuilt', 'GarageCars', 'TotalBsmtSF', 'FullBath', 'Fireplaces']
+
+    # 3. Inicializamos la tabla del escalador usando sus MEDIAS exactas
+    df_escalar = pd.DataFrame([scaler.mean_], columns=columnas_del_scaler)
+    
+    # 4. Volcamos los datos del Sidebar de tu interfaz
+    df_escalar['OverallQual'] = float(p_qual)
+    df_escalar['GrLivArea'] = float(p_area)
+    df_escalar['YearBuilt'] = float(p_year)
+    df_escalar['GarageCars'] = float(p_gar)
+    df_escalar['TotalBsmtSF'] = float(p_bsmt)
+    df_escalar['FullBath'] = float(p_bath)
+    df_escalar['Fireplaces'] = float(p_fire) # Mapeado con tu nuevo slider
+    
+    # Ajustes lógicos colaterales idénticos a los de ella
+    if 'GarageArea' in df_escalar.columns:
+        df_escalar['GarageArea'] = float(p_gar * 300)
+    if '1stFlrSF' in df_escalar.columns:
+        df_escalar['1stFlrSF'] = float(p_bsmt)
+        
+    # 5. ESCALAMOS (Manteniendo rigurosamente las dimensiones)
+    datos_escalados = scaler.transform(df_escalar[columnas_del_scaler])
+    df_escalado_limpio = pd.DataFrame(datos_escalados, columns=columnas_del_scaler)
+    
+    # 6. Pasamos los valores numéricos escalados al diccionario final del modelo
+    for col in df_escalado_limpio.columns:
+        if col in datos_modelo:
+            datos_modelo[col] = df_escalado_limpio.loc[0, col]
+            
+    # 7. Construimos el DataFrame definitivo estructurado con las 258 columnas exactas
+    df_final_scoring = pd.DataFrame([datos_modelo], columns=columnas_modelo)
+    
+    # 8. Predicción final y reversión del logaritmo (np.expm1)
+    prediccion_log = modelo_ml.predict(df_final_scoring)
+    pred = float(np.expm1(prediccion_log[0]))
     
     # Mantener tu cálculo del margen estético del 8%
     margen = float(pred * 0.08)
@@ -376,15 +428,133 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
+
     st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📊 Explicación de la Predicción y Comparativa</div>',
+                unsafe_allow_html=True)
 
-    # ==========================================================================
-    # AQUÍ VAN LOS GRÁFICOS DE PREDICCIÓN — por decidir con el equipo
-    # ==========================================================================
+    col_pred_1, col_pred_2 = st.columns(2)
 
-    # Gráfico A — ej. contribución de cada feature
-    # Gráfico B — ej. comparativa con casas similares
+    # ──────────────────────────────────────────────────────────────────────────
+    # GRÁFICO A: Contribución Real (CAMBIO 3: Coeficientes de Ridge en Plotly)
+    # ──────────────────────────────────────────────────────────────────────────
+    with col_pred_1:
+        variables_clave = ['OverallQual', 'GrLivArea', 'YearBuilt', 'TotalBsmtSF', 'GarageCars', 'FullBath', 'Fireplaces']
+        features_nombres = ["Calidad", "Superficie (sqft)", "Año Const.", "Sótano (sqft)", "Plazas Garaje", "Baños", "Chimeneas"]
+        
+        try:
+            indices_columnas = [columnas_modelo.index(c) for c in variables_clave]
+            pesos = modelo_ml.coef_[indices_columnas]
+        except (AttributeError, ValueError):
+            pesos = [0.35, 0.25, 0.15, 0.12, 0.08, 0.05, 0.03]
+        
+        df_imp = pd.DataFrame({
+            'Característica': features_nombres,
+            'Fuerza del Coeficiente': pesos
+        }).sort_values(by='Fuerza del Coeficiente', ascending=True)
 
-    # ==========================================================================
+        df_imp['Efecto'] = ['Sube el Precio' if x >= 0 else 'Baja el Precio' for x in df_imp['Fuerza del Coeficiente']]
 
+        fig_contrib = px.bar(
+            df_imp, 
+            x='Fuerza del Coeficiente', 
+            y='Característica',
+            orientation='h',
+            title="¿Qué características influyen más en el modelo Ridge?",
+            color='Efecto',
+            color_discrete_map={'Sube el Precio': '#1E88E5', 'Baja el Precio': '#FF4B4B'}
+        )
+        
+        fig_contrib.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", y=-0.2), height=350
+        )
+        st.plotly_chart(fig_contrib, use_container_width=True)
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # GRÁFICO B: Comparativa con Casas Similares (Se mantiene intacto y funcional)
+    # ──────────────────────────────────────────────────────────────────────────
+    with col_pred_2:
+        casas_similares = df[
+            df["OverallQual"].between(p_qual - 1, p_qual + 1) &
+            df["GrLivArea"].between(p_area - 300, p_area + 300)
+        ].head(5)
+
+        if not casas_similares.empty:
+            casas_similares = casas_similares.sort_values(by="SalePrice")
+            casas_similares["ID_Casa"] = [f"Casa Real {i+1}" for i in range(len(casas_similares))]
+            
+            casa_usuario = pd.DataFrame([{
+                "ID_Casa": "⭐ TU PREDICCIÓN",
+                "SalePrice": pred
+            }])
+            
+            df_comp = pd.concat([casas_similares[["ID_Casa", "SalePrice"]], casa_usuario], ignore_index=True)
+            colores = ["#6c757d"] * (len(df_comp) - 1) + ["#1565c0"]
+
+            fig_comp = go.Figure(go.Bar(
+                x=df_comp["ID_Casa"],
+                y=df_comp["SalePrice"],
+                marker_color=colores,
+                text=[f"${val:,.0f}" for val in df_comp["SalePrice"]],
+                textposition='auto'
+            ))
+            
+            fig_comp.update_layout(
+                title=f"Tu estimación vs casas reales (Calidad ~{p_qual} y Área ~{p_area} sqft)",
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                height=350
+            )
+            fig_comp.update_yaxes(tickprefix="$", tickformat=",")
+            st.plotly_chart(fig_comp, use_container_width=True)
+
+    
+        else:
+            st.warning("⚠️ No se encontraron casas reales lo suficientemente similares para comparar en este rango.")
+    
+    # ──────────────────────────────────────────────────────────────────────────
+    # GRÁFICO C: Distribución del Mercado (Campana de Gauss / Histograma)
+    # ──────────────────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🏠 Posición de tu casa en la distribución del mercado</div>',
+                unsafe_allow_html=True)
+
+    # Usamos los precios reales del dataset para crear la distribución
+    precios_reales = df["SalePrice"]
+
+    fig_dist = go.Figure()
+
+    # 1. Creamos el histograma (la campana) con los datos reales del CSV
+    fig_dist.add_trace(go.Histogram(
+        x=precios_reales,
+        name='Distribución del Mercado',
+        marker_color='teal',
+        opacity=0.5,
+        nbinsx=50,
+        histnorm='probability density' # Esto hace que parezca una campana de densidad
+    ))
+
+    # 2. Añadimos la línea vertical roja que indica la PREDICCIÓN actual
+    fig_dist.add_vline(
+        x=pred, 
+        line_width=4, 
+        line_dash="dash", 
+        line_color="red",
+        annotation_text=f" TU PREDICCIÓN: ${pred:,.0f}",
+        annotation_position="top right",
+        annotation_font_color="red"
+    )
+
+    fig_dist.update_layout(
+        title="¿Es tu casa barata o cara respecto al total del mercado?",
+        xaxis_title="Precio de Venta ($ USD)",
+        yaxis_title="Densidad de Propiedades",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=400,
+        showlegend=False,
+        # Limitamos el eje X para que se vea bien la parte central del mercado
+        xaxis=dict(range=[0, 500000], tickprefix="$", tickformat=",")
+    )
+
+    st.plotly_chart(fig_dist, use_container_width=True)
