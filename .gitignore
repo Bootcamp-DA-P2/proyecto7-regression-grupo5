@@ -220,7 +220,10 @@ __marimo__/
 
 # data files
 data/
+!data/outliers/
+!data/outliers/.gitkeep
 output/
+*.csv
 
 //Ignorar DS
 
