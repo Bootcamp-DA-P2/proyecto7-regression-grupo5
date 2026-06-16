@@ -2,14 +2,16 @@
 
 ¡Bienvenido al repositorio central de nuestro proyecto grupal de Analítica de Datos y Machine Learning! Este proyecto abarca un pipeline completo de Ciencia de Datos: desde la ingesta de un dataset de alta dimensionalidad, pasando por una rigurosa auditoría de calidad de datos y optimización de modelos, hasta el despliegue de un modelo predictivo optimizado integrado en un dashboard interactivo moderno.
 
+> ⚠️ **Prerrequisito fundamental:** Para poder visualizar e interactuar con el Dashboard, es estrictamente necesario ejecutar primero de manera completa el notebook de modelado (`Eda.ipynb`). Esto procesará los datos raw y generará de forma automatizada los artefactos serializados (`.pkl`) y datasets limpios necesarios para la interfaz web.
+
 ---
 
 ## 📦 Organización y Componentes del Proyecto
 
-* **Modalidad:** Proyecto Grupal.
+* **Modalidad:** Proyecto Grupal (Grupo 5).
 * **Plazo de Desarrollo:** 1 semana.
 * **Componentes del Repositorio:** * Código fuente del pipeline de datos y modelado (`Eda.ipynb`).
-  * Aplicación interactiva en producción (`dashboard.py`).
+  * Aplicación interactiva en producción (`view/dashboard.py`).
   * Recursos y artefactos del modelo serializados en rutas automatizadas (`data/utiles/`).
 * **Solución Integrada:** La aplicación demo y la interfaz analítica de mercado se han consolidado de manera unificada en una sola herramienta interactiva utilizando **Streamlit** y **Plotly**, permitiendo realizar simulaciones de tasación y consultas de negocio desde el mismo entorno web.
 
@@ -21,7 +23,7 @@ Para este proyecto se ha utilizado el dataset estructurado en formato CSV llamad
 
 El desarrollo se compone de dos módulos principales:
 1. **Pipeline de Machine Learning (`Eda.ipynb`):** Notebook enfocado en el Análisis Exploratorio de Datos (EDA), manejo avanzado de valores nulos, eliminación de anomalías (*outliers*), comparación multimodelo y exportación serializada de recursos de producción.
-2. **Dashboard Interactivo (`dashboard.py`):** Una aplicación web interactiva construida sobre **Streamlit** y **Plotly** que actúa como interfaz para el usuario final, permitiendo cotizar viviendas en tiempo real y visualizar analíticas de mercado.
+2. **Dashboard Interactivo (`view/dashboard.py`):** Una aplicación web interactiva construida sobre **Streamlit** y **Plotly** que actúa como interfaz para el usuario final, permitiendo cotizar viviendas en tiempo real y visualizar analíticas de mercado. *Requiere la ejecución previa del pipeline de ML.*
 
 ---
 
@@ -60,6 +62,24 @@ Interactúa con los archivos binarios serializados (`.pkl`) generados por el pip
 
 ---
 
+## 📸 Vista Previa del Dashboard
+
+A continuación se muestran las capturas de pantalla de la interfaz interactiva desplegada en Streamlit:
+
+### 1. Vista Global: Explorador de Mercado (Macro - Parte 1)
+*Análisis visual de tendencias de precios, distribuciones y comportamiento histórico del sector.*
+![Explorador de Mercado - Vista Macro 1](data/utiles/Fotos/dashboard1.png)
+
+### 2. Vista Global: Explorador de Mercado (Macro - Parte 2)
+*Profundización en las correlaciones de variables, matrices de calor y dispersión de datos.*
+![Explorador de Mercado - Vista Macro 2](data/utiles/Fotos/dashboard2.png)
+
+### 3. Vista Específica: Simulador de Precios (Micro - Predicción)
+*Interfaz de usuario para la predicción de viviendas en tiempo real, posicionamiento de mercado y desglose de contribución de variables.*
+![Simulador Predictivo - Vista Micro Prediccion](data/utiles/Fotos/dashboard3.png)
+
+---
+
 ## 🛠️ Tecnologías Empleadas
 
 * **Entornos de Trabajo:** Jupyter Notebook, Kaggle Notebooks.
@@ -77,16 +97,22 @@ El proyecto implementa una estructura modular optimizada para garantizar la cons
 
 ```text
 ├── data/
-│   ├── train.csv                      # Dataset original (extracción de Kaggle)
-│   └── utiles/                        # Directorio automatizado de recursos compartidos
+│   ├── train.csv                         # Dataset original (extracción de Kaggle)
+│   └── utiles/                           # Directorio automatizado de recursos compartidos (Generado por EDA)
 │       ├── clean_data/
-│       │   └── clean_train.csv        # Dataset tras auditoría e imputación de nulos
+│       │   └── clean_train.csv           # Dataset tras auditoría e imputación de nulos
 │       ├── outliers/
 │       │   └── data_con_outliers_marcados.csv
-│       └── modelo/
-│           ├── modelo_ridge_house_prices.pkl   # Modelo ganador serializado
-│           ├── escalador_house_prices.pkl      # StandardScaler ajustado en train
-│           └── columnas_modelo.pkl             # Listado de columnas tras One-Hot Encoding
-├── Eda.ipynb                            # Pipeline completo de entrenamiento, EDA y ML
-├── Readme.txt                       # Código fuente de la aplicación interactiva Streamlit
-└── dashboard.py                          # Documentación del proyecto (este archivo)
+│       ├── modelo/
+│       │   ├── modelo_ridge_house_prices.pkl   # Modelo ganador serializado
+│       │   ├── escalador_house_prices.pkl      # StandardScaler ajustado en train
+│       │   └── columnas_modelo.pkl             # Listado de columnas tras One-Hot Encoding
+│       └── Fotos/
+│           ├── dashboard1.png            # Captura 1: Explorador Macro (Parte 1)
+│           ├── dashboard2.png            # Captura 2: Explorador Macro (Parte 2)
+│           └── dashboard3.png            # Captura 3: Simulador Predictivo Micro
+├── view/
+│   └── dashboard.py                      # Código fuente de la aplicación interactiva Streamlit
+├── README.md                             # Documentación del proyecto (este archivo)
+├── Eda.ipynb                             # ¡EJECUTAR PRIMERO! Pipeline de entrenamiento, EDA y ML
+└── requirements.txt                      # Dependencias del proyecto para producción
